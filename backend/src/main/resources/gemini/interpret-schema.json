@@ -1,0 +1,32 @@
+{
+  "type": "OBJECT",
+  "properties": {
+    "reply": { "type": "STRING" },
+    "intents": {
+      "type": "ARRAY",
+      "items": {
+        "type": "OBJECT",
+        "properties": {
+          "type": {
+            "type": "STRING",
+            "enum": ["create_reminder", "save_memory", "log_expense", "forget_memory", "query", "chat"]
+          },
+          "title": { "type": "STRING", "description": "REQUIRED for create_reminder, save_memory and forget_memory: short name, e.g. DBMS exam" },
+          "detail": { "type": "STRING", "description": "Optional extra info for a memory" },
+          "triggerAt": { "type": "STRING", "description": "create_reminder ONLY. ISO-8601 with the user's offset, e.g. 2026-10-05T09:00:00+05:30" },
+          "rrule": { "type": "STRING", "description": "Required when the user says every day/week/month. FREQ=DAILY, FREQ=WEEKLY or FREQ=MONTHLY;BYMONTHDAY=n" },
+          "priority": { "type": "STRING", "enum": ["LOW", "NORMAL", "IMPORTANT"], "description": "IMPORTANT for payments, EMIs, bills, exams and deadlines" },
+          "memoryKind": { "type": "STRING", "enum": ["DATE", "FACT", "PREFERENCE", "TEMPORARY"] },
+          "date": { "type": "STRING", "description": "save_memory with memoryKind DATE: YYYY-MM-DD" },
+          "expiresInHours": { "type": "INTEGER", "description": "save_memory with memoryKind TEMPORARY: hours until it can be forgotten" },
+          "amountPaise": { "type": "INTEGER" },
+          "category": { "type": "STRING" },
+          "note": { "type": "STRING", "description": "log_expense ONLY: what the money was for" },
+          "confidence": { "type": "NUMBER" }
+        },
+        "required": ["type", "confidence"]
+      }
+    }
+  },
+  "required": ["reply", "intents"]
+}

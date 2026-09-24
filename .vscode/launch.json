@@ -1,0 +1,14 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "java",
+      "name": "Pocket Companion backend",
+      "request": "launch",
+      "mainClass": "com.arin.pocketcompanion.PocketCompanionApplication",
+      "projectName": "pocket-companion-backend",
+      "cwd": "${workspaceFolder}/backend",
+      "envFile": "${workspaceFolder}/backend/.env"
+    }
+  ]
+}
