@@ -18,16 +18,14 @@ import kotlinx.coroutines.launch
 import kotlinx.datetime.TimeZone
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
-
 import com.arin.pocketcompanion.domain.InterventionEngine
 import com.arin.pocketcompanion.data.local.InterventionLogDao
 import com.arin.pocketcompanion.data.local.InterventionLogEntity
 import com.arin.pocketcompanion.domain.NudgeLevel
 import com.arin.pocketcompanion.domain.NudgeResponse
-
 import com.arin.pocketcompanion.data.local.FocusDao
 
-/** Fires when a reminder is due: shows the notification, then books the next repeat if there is one. */
+/** Fires when a reminder is due and presents the alarm-style full-screen notification. */
 class ReminderReceiver : BroadcastReceiver(), KoinComponent {
 
     private val reminderDao: ReminderDao by inject()
@@ -39,26 +37,26 @@ class ReminderReceiver : BroadcastReceiver(), KoinComponent {
     override fun onReceive(context: Context, intent: Intent) {
         val id = intent.getStringExtra(EXTRA_ID) ?: return
         val title = intent.getStringExtra(EXTRA_TITLE).orEmpty()
-
         val pending = goAsync()
+
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                // 1. Check Intervention Engine
+                val reminder = reminderDao.byId(id) ?: return@launch
+                if (reminder.status != ReminderStatus.ACTIVE) return@launch
+
                 val nowEpoch = System.currentTimeMillis()
-                val todayStart = nowEpoch - 86400000 // roughly last 24h
                 val recentLogs = interventionLogDao.recent("REMINDER", title, 3)
                 val activeFocusSession = focusDao.getActiveSession(nowEpoch)
                 val ctx = InterventionEngine.Context(
                     requested = NudgeLevel.GENTLE,
                     isQuietTime = activeFocusSession != null,
-                    interruptionsToday = interventionLogDao.interruptionsSince(todayStart),
+                    interruptionsToday = interventionLogDao.interruptionsSince(nowEpoch - 86400000),
                     dailyBudget = 5,
                     userSaidNotToday = false,
                     recentResponses = recentLogs.map { it.response }
                 )
-                
                 val decision = interventionEngine.decide(ctx)
-                
+
                 if (decision.shouldShow) {
                     showNotification(context, id, title, decision.level == NudgeLevel.SILENT)
                     interventionLogDao.insert(
@@ -68,19 +66,19 @@ class ReminderReceiver : BroadcastReceiver(), KoinComponent {
                             level = decision.level ?: NudgeLevel.GENTLE,
                             context = title,
                             shownAt = nowEpoch,
-                            response = NudgeResponse.IGNORED // default until user interacts
+                            response = NudgeResponse.IGNORED
                         )
                     )
                 }
 
-                // 2. Handle Repeating Reminders
-                val reminder = reminderDao.byId(id) ?: return@launch
-                val next = reminder.rrule?.let { RRule.nextAfter(it, reminder.triggerAt, TimeZone.currentSystemDefault()) }
+                // Schedule the next recurring occurrence, but do not mark a one-time reminder
+                // completed just because it fired. Completion is the user's explicit action.
+                val next = reminder.rrule?.let {
+                    RRule.nextAfter(it, reminder.triggerAt, TimeZone.currentSystemDefault())
+                }
                 if (next != null) {
                     reminderDao.upsert(reminder.copy(triggerAt = next))
                     scheduler.schedule(reminder.id, reminder.title, next, reminder.rrule)
-                } else {
-                    reminderDao.upsert(reminder.copy(status = ReminderStatus.DONE))
                 }
             } finally {
                 pending.finish()
@@ -89,24 +87,44 @@ class ReminderReceiver : BroadcastReceiver(), KoinComponent {
     }
 
     private fun showNotification(context: Context, id: String, title: String, silent: Boolean = false) {
-        val open = PendingIntent.getActivity(
-            context, 0, Intent(context, MainActivity::class.java),
-            PendingIntent.FLAG_IMMUTABLE,
+        val alarmIntent = Intent(context, AlarmActivity::class.java)
+            .putExtra(EXTRA_ID, id)
+            .putExtra(EXTRA_TITLE, title)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+        val alarmPending = PendingIntent.getActivity(
+            context,
+            id.hashCode(),
+            alarmIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
-        
-        val builder = Notification.Builder(context, AlarmReminderScheduler.CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.ic_popup_reminder) // TODO: Milo notification icon
+
+        // Keep a normal notification as a fallback. Android may restrict full-screen
+        // launches unless the user has allowed full-screen notifications for Milo.
+        val openMain = PendingIntent.getActivity(
+            context,
+            (id + "_main").hashCode(),
+            Intent(context, MainActivity::class.java),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val builder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            Notification.Builder(context, AlarmReminderScheduler.CHANNEL_ID)
+        } else {
+            @Suppress("DEPRECATION")
+            Notification.Builder(context)
+        }
+        builder.setSmallIcon(android.R.drawable.ic_popup_reminder)
             .setContentTitle(title)
             .setContentText("Milo's reminding you 🙂")
-            .setContentIntent(open)
+            .setContentIntent(alarmPending)
+            .setFullScreenIntent(alarmPending, !silent)
+            .setCategory(Notification.CATEGORY_ALARM)
+            .setPriority(if (silent) Notification.PRIORITY_DEFAULT else Notification.PRIORITY_MAX)
             .setAutoCancel(true)
 
-        // Silent visual cue
-        if (silent && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            builder.setGroupAlertBehavior(Notification.GROUP_ALERT_SUMMARY) // Minimal interruption
-        }
-
-        context.getSystemService(NotificationManager::class.java).notify(id.hashCode(), builder.build())
+        // The notification shade still offers a safe way to open the alarm screen.
+        if (silent) builder.setContentIntent(openMain)
+        context.getSystemService(NotificationManager::class.java)
+            .notify(id.hashCode(), builder.build())
     }
 
     companion object {
