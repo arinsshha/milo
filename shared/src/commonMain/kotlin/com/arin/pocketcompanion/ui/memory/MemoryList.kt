@@ -15,6 +15,8 @@ enum class MemoryFilter(val label: String, val kind: MemoryKind?) {
     Facts("Facts", MemoryKind.FACT),
     Preferences("Preferences", MemoryKind.PREFERENCE),
     Temporary("Temporary", MemoryKind.TEMPORARY),
+    Financial("Financial", MemoryKind.FINANCIAL),
+    Routines("Routines", MemoryKind.ROUTINE)
 }
 
 data class MemoryRow(val id: String, val title: String, val detail: String?, val meta: String)
@@ -62,5 +64,7 @@ object MemoryList {
         MemoryKind.FACT -> "Fact"
         MemoryKind.PREFERENCE -> "Preference"
         MemoryKind.TEMPORARY -> "Temporary"
+        MemoryKind.FINANCIAL -> "Financial"
+        MemoryKind.ROUTINE -> "Routine"
     }
 }

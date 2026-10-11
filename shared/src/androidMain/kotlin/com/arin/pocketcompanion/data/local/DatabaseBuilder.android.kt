@@ -11,6 +11,7 @@ fun buildDatabase(context: Context): AppDatabase {
         context = appContext,
         name = appContext.getDatabasePath("companion.db").absolutePath,
     )
+        .fallbackToDestructiveMigration(dropAllTables = true)
         .setDriver(BundledSQLiteDriver())
         .setQueryCoroutineContext(Dispatchers.IO)
         .build()

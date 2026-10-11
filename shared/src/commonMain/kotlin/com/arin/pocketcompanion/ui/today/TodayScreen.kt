@@ -30,17 +30,47 @@ import com.arin.pocketcompanion.ui.theme.DisplayFont
 import com.arin.pocketcompanion.ui.theme.Palette
 import org.koin.compose.viewmodel.koinViewModel
 
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.Alignment
+
+import androidx.compose.material3.TextButton
+
 @Composable
-fun TodayScreen(name: String, onOpenMemory: () -> Unit = {}, viewModel: TodayViewModel = koinViewModel()) {
+fun TodayScreen(
+    name: String,
+    onOpenMemory: () -> Unit = {},
+    onOpenReminders: () -> Unit = {},
+    onNewReminder: () -> Unit = {},
+    onOpenSettings: () -> Unit = {},
+    viewModel: TodayViewModel = koinViewModel()
+) {
     val state by viewModel.state.collectAsStateWithLifecycle()
 
     Column(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 28.dp),
         verticalArrangement = Arrangement.spacedBy(20.dp),
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(state.dateLabel.uppercase(), color = Palette.Muted, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 0.5.sp)
-            Text("${state.greeting}, $name", fontFamily = DisplayFont, fontWeight = FontWeight.SemiBold, fontSize = 30.sp, color = Palette.Ink)
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(state.dateLabel.uppercase(), color = Palette.Muted, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 0.5.sp)
+                Text("${state.greeting}, $name", fontFamily = DisplayFont, fontWeight = FontWeight.SemiBold, fontSize = 30.sp, color = Palette.Ink)
+            }
+            Box(
+                Modifier
+                    .size(44.dp)
+                    .clip(CircleShape)
+                    .background(Palette.Surface)
+                    .border(1.dp, Palette.Line, CircleShape)
+                    .clickable(role = Role.Button, onClick = onOpenSettings),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("⚙️", fontSize = 20.sp)
+            }
         }
 
         RightNowCard(state.rightNow)
@@ -48,11 +78,36 @@ fun TodayScreen(name: String, onOpenMemory: () -> Unit = {}, viewModel: TodayVie
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             Stat("Spent", state.monthSpent, "this month", Modifier.weight(1f))
             Stat("Remembered", state.memoriesCount.toString(), "things", Modifier.weight(1f), onClick = onOpenMemory)
-            Stat("Coming up", state.timeline.size.toString(), "reminders", Modifier.weight(1f))
+            Stat("Coming up", state.timeline.size.toString(), "reminders", Modifier.weight(1f), onClick = onOpenReminders)
         }
 
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text("Coming up", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Palette.Ink)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Coming up", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Palette.Ink)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    TextButton(onClick = onOpenReminders) {
+                        Text("View All", fontSize = 13.sp, color = Palette.Teal, fontWeight = FontWeight.Bold)
+                    }
+                    Box(
+                        modifier = Modifier
+                            .size(32.dp)
+                            .clip(CircleShape)
+                            .background(Palette.Teal)
+                            .clickable { onNewReminder() },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("+", color = Palette.Surface, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+
             Column(Modifier.card().padding(horizontal = 16.dp, vertical = 4.dp)) {
                 if (state.timeline.isEmpty()) {
                     Text("Nothing scheduled. Tell Milo \"remind me to…\" to add something.",

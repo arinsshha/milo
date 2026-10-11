@@ -1,6 +1,6 @@
 package com.arin.pocketcompanion.domain
 
-enum class MemoryKind { DATE, FACT, PREFERENCE, TEMPORARY }
+enum class MemoryKind { DATE, FACT, PREFERENCE, TEMPORARY, FINANCIAL, ROUTINE }
 enum class Source { USER_SAID, LEARNED }
 enum class Priority { LOW, NORMAL, IMPORTANT }
 enum class ReminderStatus { ACTIVE, DONE, CANCELLED }

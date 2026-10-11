@@ -12,8 +12,9 @@ import androidx.room.RoomDatabaseConstructor
         ExpenseEntity::class,
         TrackedAppEntity::class,
         InterventionLogEntity::class,
+        FocusSessionEntity::class,
     ],
-    version = 1,
+    version = 3,
 )
 @ConstructedBy(AppDatabaseConstructor::class)
 abstract class AppDatabase : RoomDatabase() {
@@ -21,6 +22,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun reminderDao(): ReminderDao
     abstract fun expenseDao(): ExpenseDao
     abstract fun interventionLogDao(): InterventionLogDao
+    abstract fun focusDao(): FocusDao
 }
 
 // Room's compiler generates the actual implementation for each platform.

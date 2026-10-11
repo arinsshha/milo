@@ -21,6 +21,10 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -31,6 +35,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.imePadding
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.arin.pocketcompanion.ui.components.Milo
 import com.arin.pocketcompanion.ui.theme.DisplayFont
@@ -80,6 +90,44 @@ fun MemoryScreen(viewModel: MemoryViewModel = koinViewModel()) {
                         }
                     }
                 }
+            }
+        }
+    }
+    
+    // Manual Memory Entry field
+    var newMemoryText by remember { mutableStateOf("") }
+    Box(modifier = Modifier.fillMaxSize().imePadding(), contentAlignment = Alignment.BottomCenter) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(Palette.Surface)
+                .padding(16.dp)
+        ) {
+            OutlinedTextField(
+                value = newMemoryText,
+                onValueChange = { newMemoryText = it },
+                placeholder = { Text("Tell Milo to remember...") },
+                modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(24.dp),
+                colors = TextFieldDefaults.colors(
+                    focusedContainerColor = Palette.Paper,
+                    unfocusedContainerColor = Palette.Paper,
+                    focusedIndicatorColor = Palette.Paper,
+                    unfocusedIndicatorColor = Palette.Paper,
+                )
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            IconButton(
+                onClick = {
+                    if (newMemoryText.isNotBlank()) {
+                        viewModel.addMemory(newMemoryText)
+                        newMemoryText = ""
+                    }
+                },
+                modifier = Modifier.background(Palette.Teal, CircleShape)
+            ) {
+                Text("↑", color = Palette.Surface, fontSize = 20.sp)
             }
         }
     }

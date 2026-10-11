@@ -22,6 +22,9 @@ import kotlinx.datetime.TimeZone
 import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
 
+import com.arin.pocketcompanion.domain.VoiceEngine
+import com.arin.pocketcompanion.data.repository.SettingsRepository
+
 sealed interface ChatItem {
     val id: Long
     data class User(override val id: Long, val text: String) : ChatItem
@@ -41,6 +44,8 @@ class ChatViewModel(
     private val api: CompanionApi,
     private val executor: IntentExecutor,
     private val memoryDao: MemoryDao,
+    private val voiceEngine: VoiceEngine? = null,
+    private val settingsRepository: SettingsRepository? = null,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(ChatUiState())
@@ -99,6 +104,10 @@ class ChatViewModel(
     /** Placeholder until TextToSpeech is wired in: talk for roughly as long as the reply would take to say. */
     private fun speak(text: String) {
         talkJob?.cancel()
+        val voiceEnabled = settingsRepository?.settings?.value?.voiceEnabled ?: true
+        if (voiceEnabled) {
+            voiceEngine?.speak(text)
+        }
         talkJob = viewModelScope.launch {
             _state.update { it.copy(miloTalking = true) }
             delay((text.length * 55L).coerceIn(800L, 4_000L))

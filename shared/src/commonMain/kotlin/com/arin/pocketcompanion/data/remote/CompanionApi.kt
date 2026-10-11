@@ -14,12 +14,21 @@ class CompanionApi(
     private val client: HttpClient,
     private val baseUrl: String,
 ) {
-    suspend fun interpret(request: InterpretRequest): Result<InterpretResponse> = runCatching {
-        val response = client.post("$baseUrl/api/v1/interpret") {
-            contentType(ContentType.Application.Json)
-            setBody(request)
+    suspend fun interpret(request: InterpretRequest): Result<InterpretResponse> {
+        val remoteResult = runCatching {
+            val response = client.post("$baseUrl/api/v1/interpret") {
+                contentType(ContentType.Application.Json)
+                setBody(request)
+            }
+            check(response.status.isSuccess()) { "Server said ${response.status}" }
+            response.body<InterpretResponse>()
         }
-        check(response.status.isSuccess()) { "Server said ${response.status}" }
-        response.body<InterpretResponse>()
+
+        return if (remoteResult.isSuccess) {
+            remoteResult
+        } else {
+            // Fallback to local on-device interpreter when backend server is offline
+            Result.success(OfflineInterpreter.interpret(request))
+        }
     }
 }

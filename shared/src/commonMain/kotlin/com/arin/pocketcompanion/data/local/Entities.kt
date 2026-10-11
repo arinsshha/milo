@@ -30,9 +30,14 @@ data class ReminderEntity(
     val title: String,
     val triggerAt: Long,
     val rrule: String?,
-    val priority: Priority,
-    val memoryId: String?,
-    val status: ReminderStatus,
+    val priority: Priority = Priority.NORMAL,
+    val memoryId: String? = null,
+    val status: ReminderStatus = ReminderStatus.ACTIVE,
+    val category: String = "Personal",
+    val note: String? = null,
+    val ringtoneId: String = "Milo's Chime",
+    val completedAt: Long? = null,
+    val createdAt: Long = 0L,
 )
 
 @Entity(tableName = "expenses")
@@ -60,4 +65,12 @@ data class InterventionLogEntity(
     val context: String,
     val shownAt: Long,
     val response: NudgeResponse,
+)
+
+@Entity(tableName = "focus_sessions")
+data class FocusSessionEntity(
+    @PrimaryKey val id: String,
+    val startTime: Long,
+    val endTime: Long,
+    val isBreak: Boolean,
 )

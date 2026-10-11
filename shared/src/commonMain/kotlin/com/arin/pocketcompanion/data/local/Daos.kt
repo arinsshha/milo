@@ -35,6 +35,12 @@ interface ReminderDao {
     @Query("SELECT * FROM reminders WHERE status = 'ACTIVE' AND triggerAt >= :from ORDER BY triggerAt LIMIT :limit")
     fun observeUpcoming(from: Long, limit: Int): Flow<List<ReminderEntity>>
 
+    @Query("SELECT * FROM reminders ORDER BY triggerAt ASC")
+    fun observeAll(): Flow<List<ReminderEntity>>
+
+    @Query("SELECT * FROM reminders WHERE status = 'DONE' ORDER BY completedAt DESC")
+    fun observeCompleted(): Flow<List<ReminderEntity>>
+
     @Query("SELECT * FROM reminders WHERE status = 'ACTIVE'")
     suspend fun allActive(): List<ReminderEntity>
 
@@ -53,6 +59,9 @@ interface ExpenseDao {
     @Query("SELECT COALESCE(SUM(amountPaise), 0) FROM expenses WHERE spentAt >= :from")
     fun observeTotalSince(from: Long): Flow<Long>
 
+    @Query("SELECT * FROM expenses WHERE spentAt >= :from ORDER BY spentAt DESC")
+    fun observeRecentSince(from: Long): Flow<List<ExpenseEntity>>
+
     @Query("DELETE FROM expenses WHERE id = :id")
     suspend fun delete(id: String)
 }
@@ -67,4 +76,22 @@ interface InterventionLogDao {
 
     @Query("SELECT * FROM intervention_log WHERE kind = :kind AND context = :context ORDER BY shownAt DESC LIMIT :limit")
     suspend fun recent(kind: String, context: String, limit: Int): List<InterventionLogEntity>
+}
+
+@Dao
+interface FocusDao {
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsert(session: FocusSessionEntity)
+
+    @Query("SELECT * FROM focus_sessions WHERE endTime > :now ORDER BY endTime DESC LIMIT 1")
+    fun observeActiveSession(now: Long): Flow<FocusSessionEntity?>
+
+    @Query("SELECT * FROM focus_sessions WHERE endTime > :now ORDER BY endTime DESC LIMIT 1")
+    suspend fun getActiveSession(now: Long): FocusSessionEntity?
+
+    @Query("DELETE FROM focus_sessions WHERE id = :id")
+    suspend fun delete(id: String)
+    
+    @Query("DELETE FROM focus_sessions")
+    suspend fun clearAll()
 }

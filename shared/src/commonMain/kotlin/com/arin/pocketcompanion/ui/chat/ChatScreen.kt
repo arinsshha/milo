@@ -2,6 +2,8 @@ package com.arin.pocketcompanion.ui.chat
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -43,10 +45,10 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.arin.pocketcompanion.ui.components.Milo
 import com.arin.pocketcompanion.ui.theme.Palette
-import org.koin.compose.viewmodel.koinViewModel
+import org.koin.compose.koinInject
 
 @Composable
-fun ChatScreen(viewModel: ChatViewModel = koinViewModel()) {
+fun ChatScreen(viewModel: ChatViewModel = koinInject()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val listState = rememberLazyListState()
     LaunchedEffect(state.items.size) {
@@ -80,7 +82,7 @@ fun ChatScreen(viewModel: ChatViewModel = koinViewModel()) {
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             if (state.items.isEmpty()) {
-                item { Hint() }
+                item { Hint(onSelectPrompt = viewModel::send) }
             }
             items(state.items, key = { it.id }) { item ->
                 when (item) {
@@ -97,8 +99,38 @@ fun ChatScreen(viewModel: ChatViewModel = koinViewModel()) {
 }
 
 @Composable
-private fun Hint() {
-    MiloBubble("Hi! Try \"remind me to pay the EMI on the 5th every month\", \"remember my DBMS exam is on 14 October\" or \"spent 250 on lunch\".")
+private fun Hint(onSelectPrompt: (String) -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        MiloBubble("Hey! What's on your mind today? I'm all ears. 😊")
+        QuickSuggestions(onSelect = onSelectPrompt)
+    }
+}
+
+@Composable
+private fun QuickSuggestions(onSelect: (String) -> Unit) {
+    val prompts = listOf(
+        "I'm feeling anxious",
+        "I need motivation",
+        "Help me make a decision",
+        "Just want to chat"
+    )
+    Column(
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier.padding(top = 12.dp)
+    ) {
+        prompts.forEach { prompt ->
+            Box(
+                modifier = Modifier
+                    .clip(CircleShape)
+                    .background(Palette.Surface)
+                    .border(1.dp, Palette.Line, CircleShape)
+                    .clickable { onSelect(prompt) }
+                    .padding(horizontal = 16.dp, vertical = 10.dp)
+            ) {
+                Text(prompt, fontSize = 14.sp, color = Palette.Ink)
+            }
+        }
+    }
 }
 
 @Composable
@@ -153,12 +185,12 @@ private fun ConfirmCard(item: ChatItem.Confirm, onYes: () -> Unit, onNo: () -> U
 }
 
 @Composable
-private fun Composer(sending: Boolean, onSend: (String) -> Unit) {
+private fun Composer(sending: Boolean, onSend: (String) -> Unit, onMicClick: (() -> Unit)? = null) {
     var text by remember { mutableStateOf("") }
     Row(
         Modifier.fillMaxWidth().background(Palette.Surface).padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 20.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         TextField(
             value = text,
@@ -175,7 +207,15 @@ private fun Composer(sending: Boolean, onSend: (String) -> Unit) {
                 unfocusedIndicatorColor = Palette.Paper,
             ),
         )
-        // TODO: mic button → Android SpeechRecognizer (week 6).
+        if (onMicClick != null) {
+            Button(
+                onClick = onMicClick,
+                shape = CircleShape,
+                colors = ButtonDefaults.buttonColors(containerColor = Palette.TealSoft),
+                modifier = Modifier.size(48.dp),
+                contentPadding = PaddingValues(0.dp),
+            ) { Text("🎤", fontSize = 18.sp) }
+        }
         Button(
             onClick = { onSend(text); text = "" },
             enabled = !sending && text.isNotBlank(),

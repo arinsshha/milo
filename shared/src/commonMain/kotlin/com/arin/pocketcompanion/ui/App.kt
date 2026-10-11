@@ -40,6 +40,19 @@ import com.arin.pocketcompanion.ui.chat.ChatScreen
 import com.arin.pocketcompanion.ui.components.Glyph
 import com.arin.pocketcompanion.ui.components.Milo
 import com.arin.pocketcompanion.ui.memory.MemoryScreen
+import com.arin.pocketcompanion.ui.focus.FocusScreen
+import com.arin.pocketcompanion.ui.settings.SettingsScreen
+import com.arin.pocketcompanion.ui.money.MoneyScreen
+import com.arin.pocketcompanion.ui.reminders.RemindersListScreen
+import com.arin.pocketcompanion.ui.reminders.CreateReminderScreen
+import com.arin.pocketcompanion.ui.reminders.AlarmScreen
+import com.arin.pocketcompanion.ui.reminders.ReminderCompletedScreen
+import com.arin.pocketcompanion.ui.reminders.RemindersViewModel
+import com.arin.pocketcompanion.data.local.ReminderEntity
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import org.koin.compose.viewmodel.koinViewModel
+import androidx.compose.runtime.remember
+import org.koin.compose.koinInject
 import com.arin.pocketcompanion.ui.components.TabIcon
 import com.arin.pocketcompanion.ui.theme.CompanionTheme
 import com.arin.pocketcompanion.ui.theme.DisplayFont
@@ -57,39 +70,109 @@ enum class Tab(val label: String, val glyph: Glyph) {
 private val BottomBarHeight = 72.dp
 
 @Composable
-fun App(userName: String = "Arin") {
+fun App(
+    userName: String = "Arin",
+    onOpenAccessibilitySettings: (() -> Unit)? = null,
+    remindersViewModel: RemindersViewModel = koinInject()
+) {
+    val remindersState by remindersViewModel.state.collectAsStateWithLifecycle()
+
     CompanionTheme {
         var tab by rememberSaveable { mutableStateOf(Tab.Today) }
-        Box(Modifier.fillMaxSize().background(Palette.Paper).statusBarsPadding()) {
-            Column(Modifier.fillMaxSize()) {
-                // The bottom bar already occupies this much of the screen, so imePadding() below must not re-add it.
-                Box(
-                    Modifier.weight(1f).fillMaxWidth()
-                        .consumeWindowInsets(WindowInsets.navigationBars)
-                        .consumeWindowInsets(PaddingValues(bottom = BottomBarHeight)),
-                ) {
-                    when (tab) {
-                        Tab.Today -> TodayScreen(userName, onOpenMemory = { tab = Tab.Memory })
-                        Tab.Chat -> ChatScreen()
-                        Tab.Memory -> MemoryScreen()
-                        Tab.Focus -> ComingSoon("Focus", "Usage tracking and focus mode land in week 7–8.")
-                        Tab.Money -> ComingSoon("Money", "Monthly totals and categories land in week 9–10.")
+        var showSettings by rememberSaveable { mutableStateOf(false) }
+        var showRemindersList by rememberSaveable { mutableStateOf(false) }
+        var showCreateReminder by rememberSaveable { mutableStateOf(false) }
+        var editingReminder by remember { mutableStateOf<ReminderEntity?>(null) }
+
+        when {
+            remindersState.activeAlarmReminder != null -> {
+                val alarmReminder = remindersState.activeAlarmReminder!!
+                AlarmScreen(
+                    reminder = alarmReminder,
+                    onGotIt = { remindersViewModel.dismissAlarm() },
+                    onComplete = { remindersViewModel.completeReminder(alarmReminder) },
+                    onSnooze = { minutes -> remindersViewModel.snoozeReminder(alarmReminder, minutes) }
+                )
+            }
+            remindersState.completedCelebration != null -> {
+                val celeb = remindersState.completedCelebration!!
+                ReminderCompletedScreen(
+                    reminder = celeb,
+                    onDone = { remindersViewModel.dismissCelebration() }
+                )
+            }
+            showCreateReminder || editingReminder != null -> {
+                CreateReminderScreen(
+                    editingReminder = editingReminder,
+                    onBack = {
+                        showCreateReminder = false
+                        editingReminder = null
+                    },
+                    onSave = { title, triggerAt, rrule, category, note, ringtoneId, priority ->
+                        remindersViewModel.saveReminder(
+                            id = editingReminder?.id,
+                            title = title,
+                            triggerAt = triggerAt,
+                            rrule = rrule,
+                            category = category,
+                            note = note,
+                            ringtoneId = ringtoneId,
+                            priority = priority
+                        )
+                        showCreateReminder = false
+                        editingReminder = null
+                    }
+                )
+            }
+            showRemindersList -> {
+                RemindersListScreen(
+                    onNewReminder = { showCreateReminder = true },
+                    onEditReminder = { reminder -> editingReminder = reminder },
+                    onTestAlarm = { reminder -> remindersViewModel.triggerAlarmTest(reminder) }
+                )
+            }
+            showSettings -> {
+                SettingsScreen(onBack = { showSettings = false })
+            }
+            else -> {
+                Box(Modifier.fillMaxSize().background(Palette.Paper).statusBarsPadding()) {
+                    Column(Modifier.fillMaxSize()) {
+                        // The bottom bar already occupies this much of the screen, so imePadding() below must not re-add it.
+                        Box(
+                            Modifier.weight(1f).fillMaxWidth()
+                                .consumeWindowInsets(WindowInsets.navigationBars)
+                                .consumeWindowInsets(PaddingValues(bottom = BottomBarHeight)),
+                        ) {
+                            when (tab) {
+                                Tab.Today -> TodayScreen(
+                                    userName,
+                                    onOpenMemory = { tab = Tab.Memory },
+                                    onOpenReminders = { showRemindersList = true },
+                                    onNewReminder = { showCreateReminder = true },
+                                    onOpenSettings = { showSettings = true }
+                                )
+                                Tab.Chat -> ChatScreen()
+                                Tab.Memory -> MemoryScreen()
+                                Tab.Focus -> FocusScreen(onOpenAccessibilitySettings = onOpenAccessibilitySettings)
+                                Tab.Money -> MoneyScreen()
+                            }
+                        }
+                        BottomBar(current = tab, onSelect = { tab = it })
+                    }
+                    if (tab == Tab.Today) {
+                        Box(
+                            Modifier.align(Alignment.BottomEnd)
+                                .navigationBarsPadding()
+                                .padding(end = 18.dp, bottom = 100.dp)
+                                .size(68.dp)
+                                .shadow(10.dp, CircleShape)
+                                .background(Palette.Surface, CircleShape)
+                                .clickable(role = Role.Button) { tab = Tab.Chat }
+                                .semantics { contentDescription = "Talk to Milo" },
+                            contentAlignment = Alignment.Center,
+                        ) { Milo(size = 56.dp) }
                     }
                 }
-                BottomBar(current = tab, onSelect = { tab = it })
-            }
-            if (tab == Tab.Today) {
-                Box(
-                    Modifier.align(Alignment.BottomEnd)
-                        .navigationBarsPadding()
-                        .padding(end = 18.dp, bottom = 100.dp)
-                        .size(68.dp)
-                        .shadow(10.dp, CircleShape)
-                        .background(Palette.Surface, CircleShape)
-                        .clickable(role = Role.Button) { tab = Tab.Chat }
-                        .semantics { contentDescription = "Talk to Milo" },
-                    contentAlignment = Alignment.Center,
-                ) { Milo(size = 56.dp) }
             }
         }
     }
